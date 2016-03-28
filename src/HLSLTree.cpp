@@ -15,7 +15,7 @@ HLSLTree::HLSLTree(Allocator* allocator) :
     m_currentPage       = m_firstPage;
     m_currentPageOffset = 0;
 
-    m_root              = AddNode<HLSLRoot>(NULL, 1);
+    m_root              = AddNode<HLSLRoot>(NULL, 1, 0);
 }
 
 HLSLTree::~HLSLTree()

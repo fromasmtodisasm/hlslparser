@@ -74,7 +74,6 @@ int main(int argc, char* argv[])
             return 1;
         }
     }
-
     if (fileName == NULL || entryName == NULL)
     {
         Log_Error("Missing arguments");

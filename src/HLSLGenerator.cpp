@@ -48,30 +48,14 @@ static const char* GetTypeName(const HLSLType& type)
     case HLSLBaseType_Sampler2D:    return "sampler2D";
     case HLSLBaseType_SamplerCube:  return "samplerCUBE";
     case HLSLBaseType_UserDefined:  return type.typeName;
+    default:                        return "?";
     }
-    return "?";
 }
 
 static bool GetIsSamplerType(const HLSLType& type)
 {
     return type.baseType == HLSLBaseType_Sampler2D ||
            type.baseType == HLSLBaseType_SamplerCube;
-}
-
-static int GetFunctionArguments(HLSLFunctionCall* functionCall, HLSLExpression* expression[], int maxArguments)
-{
-    HLSLExpression* argument = functionCall->argument;
-    int numArguments = 0;
-    while (argument != NULL)
-    {
-        if (numArguments < maxArguments)
-        {
-            expression[numArguments] = argument;
-        }
-        argument = argument->nextExpression;
-        ++numArguments;
-    }
-    return numArguments;
 }
 
 HLSLGenerator::HLSLGenerator(Allocator* allocator) :
@@ -389,6 +373,8 @@ void HLSLGenerator::OutputArguments(HLSLArgument* argument)
             break;
         case HLSLArgumentModifier_Uniform:
             m_writer.Write("uniform ");
+            break;
+        default:
             break;
         }
 

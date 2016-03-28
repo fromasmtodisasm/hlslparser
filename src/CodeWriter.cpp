@@ -27,6 +27,7 @@ CodeWriter::CodeWriter(Allocator* allocator) :
     m_spacesPerIndent   = 4;
     m_writeLines        = false;
     m_writeFileNames    = false;
+    (void)m_allocator;
 }
 
 void CodeWriter::BeginLine(int indent, const char* fileName, int lineNumber)

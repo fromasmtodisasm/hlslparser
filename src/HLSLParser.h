@@ -71,6 +71,7 @@ private:
     bool ParseArgumentList(int endToken, HLSLArgument*& firstArgument, int& numArguments);
     bool ParseDeclarationAssignment(HLSLDeclaration* declaration);
     bool ParsePartialConstructor(HLSLExpression*& expression, HLSLBaseType type, const char* typeName);
+    bool ParsePass(HLSLPass*& pass);
 
     bool CheckForUnexpectedEndOfStream(int endToken);
 
@@ -98,6 +99,7 @@ private:
 
     const char* GetFileName();
     int GetLineNumber() const;
+    int GetBufferOffset() const;
 
 private:
 
@@ -111,6 +113,7 @@ private:
     Array<HLSLStruct*>      m_userTypes;
     Array<Variable>         m_variables;
     Array<HLSLFunction*>    m_functions;
+    Array<HLSLTechnique*>   m_technique;
     int                     m_numGlobals;
 
     HLSLTree*               m_tree;

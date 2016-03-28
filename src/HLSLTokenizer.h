@@ -1,6 +1,8 @@
 #ifndef HLSL_TOKENIZER_H
 #define HLSL_TOKENIZER_H
 
+#include <stddef.h>
+
 namespace M4
 {
 
@@ -57,6 +59,8 @@ enum HLSLToken
     HLSLToken_Uniform,
     HLSLToken_In,
     HLSLToken_InOut,
+    HLSLToken_Technique,
+    HLSLToken_Pass,
 
     // Multi-character symbols.
     HLSLToken_LessEqual,
@@ -106,6 +110,9 @@ public:
 
     /** Returns the line number where the current token began. */
     int GetLineNumber() const;
+   
+    /** Returns the buffer offset. */
+    int GetBufferOffset() const;
 
     /** Returns the file name where the current token began. */
     const char* GetFileName() const;
@@ -132,6 +139,7 @@ private:
     const char*         m_fileName;
     const char*         m_buffer;
     const char*         m_bufferEnd;
+    const char*         m_bufferBegin;
     int                 m_lineNumber;
     bool                m_error;
 

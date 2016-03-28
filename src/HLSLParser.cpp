@@ -682,7 +682,8 @@ HLSLParser::HLSLParser(Allocator* allocator, const char* fileName, const char* b
     m_tokenizer(fileName, buffer, length),
     m_userTypes(allocator),
     m_variables(allocator),
-    m_functions(allocator)
+    m_functions(allocator),
+    m_technique(allocator)
 {
     m_numGlobals = 0;
 }
@@ -797,7 +798,7 @@ bool HLSLParser::ParseTopLevel(HLSLStatement*& statement)
             return false;
         }
 
-        HLSLStruct* structure = m_tree->AddNode<HLSLStruct>(fileName, line);
+        HLSLStruct* structure = m_tree->AddNode<HLSLStruct>(fileName, line, GetBufferOffset());
         structure->name = structName;
 
         m_userTypes.PushBack(structure);
@@ -831,11 +832,44 @@ bool HLSLParser::ParseTopLevel(HLSLStatement*& statement)
         statement = structure;
 
     }
+    else if (Accept(HLSLToken_Technique))
+    {
+        // technique declaration
+        const char* techniqueName = NULL;
+        if (!ExpectIdentifier(techniqueName))
+        {
+            return false;
+        }
+        if (!Expect('{'))
+        {
+            return false;
+        }
+        HLSLTechnique* technique  = m_tree->AddNode<HLSLTechnique>(fileName, line, GetBufferOffset());
+        technique->name = techniqueName;
+       
+        m_technique.PushBack(technique);
+        HLSLPass* lastPass = NULL;
+        while (Accept(HLSLToken_Pass)) {
+           HLSLPass* pass = NULL;
+           if (!ParsePass(pass)){
+              return false;
+           }
+           if (lastPass) {
+              lastPass->nextPass = pass;
+           } else {
+              technique->pass = pass;
+           }
+           lastPass = pass;
+        }
+        if (!Expect('}'))
+            return false;
+        return true;
+    }
     else if (Accept(HLSLToken_CBuffer) || Accept(HLSLToken_TBuffer))
     {
         // cbuffer/tbuffer declaration.
 
-        HLSLBuffer* buffer = m_tree->AddNode<HLSLBuffer>(fileName, line);
+        HLSLBuffer* buffer = m_tree->AddNode<HLSLBuffer>(fileName, line, GetBufferOffset());
         AcceptIdentifier(buffer->name);
 
         // Optional register assignment.
@@ -893,7 +927,7 @@ bool HLSLParser::ParseTopLevel(HLSLStatement*& statement)
         {
             // Function declaration.
 
-            HLSLFunction* function = m_tree->AddNode<HLSLFunction>(fileName, line);
+            HLSLFunction* function = m_tree->AddNode<HLSLFunction>(fileName, line, GetBufferOffset());
             function->name                  = globalName;
             function->returnType.baseType   = type;
             function->returnType.typeName   = typeName;
@@ -927,7 +961,7 @@ bool HLSLParser::ParseTopLevel(HLSLStatement*& statement)
         else
         {
             // Uniform declaration.
-            HLSLDeclaration* declaration = m_tree->AddNode<HLSLDeclaration>(fileName, line);
+            HLSLDeclaration* declaration = m_tree->AddNode<HLSLDeclaration>(fileName, line, GetBufferOffset());
             declaration->name           = globalName;
             declaration->type.baseType  = type;
             declaration->type.constant  = constant;
@@ -1033,7 +1067,7 @@ bool HLSLParser::ParseStatement(HLSLStatement*& statement, const HLSLType& retur
     // If statement.
     if (Accept(HLSLToken_If))
     {
-        HLSLIfStatement* ifStatement = m_tree->AddNode<HLSLIfStatement>(fileName, line);
+        HLSLIfStatement* ifStatement = m_tree->AddNode<HLSLIfStatement>(fileName, line, GetBufferOffset());
         if (!Expect('(') || !ParseExpression(ifStatement->condition) || !Expect(')'))
         {
             return false;
@@ -1053,7 +1087,7 @@ bool HLSLParser::ParseStatement(HLSLStatement*& statement, const HLSLType& retur
     // For statement.
     if (Accept(HLSLToken_For))
     {
-        HLSLForStatement* forStatement = m_tree->AddNode<HLSLForStatement>(fileName, line);
+        HLSLForStatement* forStatement = m_tree->AddNode<HLSLForStatement>(fileName, line, GetBufferOffset());
         if (!Expect('('))
         {
             return false;
@@ -1089,7 +1123,7 @@ bool HLSLParser::ParseStatement(HLSLStatement*& statement, const HLSLType& retur
     // Discard statement.
     if (Accept(HLSLToken_Discard))
     {
-        HLSLDiscardStatement* discardStatement = m_tree->AddNode<HLSLDiscardStatement>(fileName, line);
+        HLSLDiscardStatement* discardStatement = m_tree->AddNode<HLSLDiscardStatement>(fileName, line, GetBufferOffset());
         statement = discardStatement;
         return Expect(';');
     }
@@ -1097,7 +1131,7 @@ bool HLSLParser::ParseStatement(HLSLStatement*& statement, const HLSLType& retur
     // Break statement.
     if (Accept(HLSLToken_Break))
     {
-        HLSLBreakStatement* breakStatement = m_tree->AddNode<HLSLBreakStatement>(fileName, line);
+        HLSLBreakStatement* breakStatement = m_tree->AddNode<HLSLBreakStatement>(fileName, line, GetBufferOffset());
         statement = breakStatement;
         return Expect(';');
     }
@@ -1105,7 +1139,7 @@ bool HLSLParser::ParseStatement(HLSLStatement*& statement, const HLSLType& retur
     // Continue statement.
     if (Accept(HLSLToken_Continue))
     {
-        HLSLContinueStatement* continueStatement = m_tree->AddNode<HLSLContinueStatement>(fileName, line);
+        HLSLContinueStatement* continueStatement = m_tree->AddNode<HLSLContinueStatement>(fileName, line, GetBufferOffset());
         statement = continueStatement;
         return Expect(';');
     }
@@ -1113,7 +1147,7 @@ bool HLSLParser::ParseStatement(HLSLStatement*& statement, const HLSLType& retur
     // Return statement
     if (Accept(HLSLToken_Return))
     {
-        HLSLReturnStatement* returnStatement = m_tree->AddNode<HLSLReturnStatement>(fileName, line);
+        HLSLReturnStatement* returnStatement = m_tree->AddNode<HLSLReturnStatement>(fileName, line, GetBufferOffset());
         if (!Accept(';') && !ParseExpression(returnStatement->expression))
         {
             return false;
@@ -1138,7 +1172,7 @@ bool HLSLParser::ParseStatement(HLSLStatement*& statement, const HLSLType& retur
     else if (ParseExpression(expression))
     {
         HLSLExpressionStatement* expressionStatement;
-        expressionStatement = m_tree->AddNode<HLSLExpressionStatement>(fileName, line);
+        expressionStatement = m_tree->AddNode<HLSLExpressionStatement>(fileName, line, GetBufferOffset());
         expressionStatement->expression = expression;
         statement = expressionStatement;
     }
@@ -1155,7 +1189,7 @@ bool HLSLParser::ParseDeclaration(HLSLDeclaration*& declaration)
 
     if (AcceptDeclaration(true, type, name))
     {
-        declaration        = m_tree->AddNode<HLSLDeclaration>(fileName, line);
+        declaration        = m_tree->AddNode<HLSLDeclaration>(fileName, line, GetBufferOffset());
         declaration->type  = type;
         declaration->name  = name;
 
@@ -1191,7 +1225,7 @@ bool HLSLParser::ParseDeclarationAssignment(HLSLDeclaration* declaration)
 
 bool HLSLParser::ParseFieldDeclaration(HLSLStructField*& field)
 {
-    field = m_tree->AddNode<HLSLStructField>( GetFileName(), GetLineNumber() );
+    field = m_tree->AddNode<HLSLStructField>( GetFileName(), GetLineNumber(), GetBufferOffset() );
     if (!ExpectDeclaration(false, field->type, field->name))
     {
         return false;
@@ -1207,9 +1241,67 @@ bool HLSLParser::ParseFieldDeclaration(HLSLStructField*& field)
     return Expect(';');
 }
 
+bool HLSLParser::ParsePass(HLSLPass*& pass) {
+    const char* passName = NULL;
+    if (!ExpectIdentifier(passName))
+    {
+       return false;
+    }
+    if (CheckForUnexpectedEndOfStream('}'))
+    {
+       return false;
+    }
+    if (!Accept('{')) {
+       return false;
+    }
+    pass = m_tree->AddNode<HLSLPass>(GetFileName(), GetLineNumber(), GetBufferOffset());
+    pass->name = passName;
+    HLSLPassParam* lastPassParam = NULL;
+    while (!Accept('}')) {
+       const char* paramName = NULL;
+       std::string param_text;
+       if (!ExpectIdentifier(paramName)) {
+          return false;
+       }
+       if (!Expect('=')) {
+          return false;
+       }
+       while(!Accept(';')) {
+          const char* ident = NULL;
+          if (AcceptIdentifier(ident) ) {
+             if (param_text.length())
+                param_text += " ";
+             param_text += ident;
+          }
+          if (Accept(HLSLToken_True)){
+             param_text += "true";
+          } else if (Accept(HLSLToken_False)){
+             param_text += "false";
+          }
+          {
+             if (!Accept('(') && !Accept(')')
+                 && m_tokenizer.GetToken() != ';'
+                 && m_tokenizer.GetToken() != HLSLToken_Identifier){
+                return Expect(';');
+             }
+          }
+       }
+       HLSLPassParam* passParam = m_tree->AddNode<HLSLPassParam>(GetFileName(), GetLineNumber(), GetBufferOffset());
+       passParam->name = paramName;
+       passParam->value = m_tree->AddString(param_text.c_str());
+       if (lastPassParam) {
+          lastPassParam->nextPassParam = passParam;
+       } else {
+          pass->passParam = passParam;
+       }
+       lastPassParam = passParam;
+    }
+   return true;
+}
+
 bool HLSLParser::ParseBufferFieldDeclaration(HLSLBufferField*& field)
 {
-    field = m_tree->AddNode<HLSLBufferField>( GetFileName(), GetLineNumber() );
+    field = m_tree->AddNode<HLSLBufferField>( GetFileName(), GetLineNumber(), GetBufferOffset() );
     if (AcceptDeclaration(false, field->type, field->name))
     {
         // Handle optional packoffset.
@@ -1257,7 +1349,7 @@ bool HLSLParser::ParseExpression(HLSLExpression*& expression)
         {
             return false;
         }
-        HLSLBinaryExpression* binaryExpression = m_tree->AddNode<HLSLBinaryExpression>(expression->fileName, expression->line);
+        HLSLBinaryExpression* binaryExpression = m_tree->AddNode<HLSLBinaryExpression>(expression->fileName, expression->line, GetBufferOffset());
         binaryExpression->binaryOp    = assignOp;
         binaryExpression->expression1 = expression;
         binaryExpression->expression2 = expression2;
@@ -1388,7 +1480,7 @@ bool HLSLParser::ParseBinaryExpression(int priority, HLSLExpression*& expression
             {
                 return false;
             }
-            HLSLBinaryExpression* binaryExpression = m_tree->AddNode<HLSLBinaryExpression>(fileName, line);
+            HLSLBinaryExpression* binaryExpression = m_tree->AddNode<HLSLBinaryExpression>(fileName, line, GetBufferOffset());
             binaryExpression->binaryOp    = binaryOp;
             binaryExpression->expression1 = expression;
             binaryExpression->expression2 = expression2;
@@ -1406,7 +1498,7 @@ bool HLSLParser::ParseBinaryExpression(int priority, HLSLExpression*& expression
         else if (_conditionalOpPriority > priority && Accept('?'))
         {
 
-            HLSLConditionalExpression* conditionalExpression = m_tree->AddNode<HLSLConditionalExpression>(fileName, line);
+            HLSLConditionalExpression* conditionalExpression = m_tree->AddNode<HLSLConditionalExpression>(fileName, line, GetBufferOffset());
             conditionalExpression->condition = expression;
             
             HLSLExpression* expression1 = NULL;
@@ -1448,7 +1540,7 @@ bool HLSLParser::ParsePartialConstructor(HLSLExpression*& expression, HLSLBaseTy
     const char* fileName = GetFileName();
     int         line     = GetLineNumber();
 
-    HLSLConstructorExpression* constructorExpression = m_tree->AddNode<HLSLConstructorExpression>(fileName, line);
+    HLSLConstructorExpression* constructorExpression = m_tree->AddNode<HLSLConstructorExpression>(fileName, line, GetBufferOffset());
     constructorExpression->type.baseType = type;
     constructorExpression->type.typeName = typeName;
     int numArguments = 0;
@@ -1472,7 +1564,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
     HLSLUnaryOp unaryOp;
     if (AcceptUnaryOperator(true, unaryOp))
     {
-        HLSLUnaryExpression* unaryExpression = m_tree->AddNode<HLSLUnaryExpression>(fileName, line);
+        HLSLUnaryExpression* unaryExpression = m_tree->AddNode<HLSLUnaryExpression>(fileName, line, GetBufferOffset());
         unaryExpression->unaryOp = unaryOp;
         if (!ParseTerminalExpression(unaryExpression->expression, needsEndParen))
         {
@@ -1503,7 +1595,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
                 needsEndParen = true;
                 return ParsePartialConstructor(expression, type.baseType, type.typeName);
             }
-            HLSLCastingExpression* castingExpression = m_tree->AddNode<HLSLCastingExpression>(fileName, line);
+            HLSLCastingExpression* castingExpression = m_tree->AddNode<HLSLCastingExpression>(fileName, line, GetBufferOffset());
             castingExpression->type = type;
             expression = castingExpression;
             castingExpression->expressionType = type;
@@ -1519,7 +1611,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
     
     if (AcceptFloat(fValue))
     {
-        HLSLLiteralExpression* literalExpression = m_tree->AddNode<HLSLLiteralExpression>(fileName, line);
+        HLSLLiteralExpression* literalExpression = m_tree->AddNode<HLSLLiteralExpression>(fileName, line, GetBufferOffset());
         literalExpression->type   = HLSLBaseType_Float;
         literalExpression->fValue = fValue;
         literalExpression->expressionType.baseType = literalExpression->type;
@@ -1529,7 +1621,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
     }
     else if (AcceptInt(iValue))
     {
-        HLSLLiteralExpression* literalExpression = m_tree->AddNode<HLSLLiteralExpression>(fileName, line);
+        HLSLLiteralExpression* literalExpression = m_tree->AddNode<HLSLLiteralExpression>(fileName, line, GetBufferOffset());
         literalExpression->type   = HLSLBaseType_Int;
         literalExpression->iValue = iValue;
         literalExpression->expressionType.baseType = literalExpression->type;
@@ -1539,7 +1631,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
     }
     else if (Accept(HLSLToken_True))
     {
-        HLSLLiteralExpression* literalExpression = m_tree->AddNode<HLSLLiteralExpression>(fileName, line);
+        HLSLLiteralExpression* literalExpression = m_tree->AddNode<HLSLLiteralExpression>(fileName, line, GetBufferOffset());
         literalExpression->type   = HLSLBaseType_Bool;
         literalExpression->bValue = true;
         literalExpression->expressionType.baseType = literalExpression->type;
@@ -1549,7 +1641,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
     }
     else if (Accept(HLSLToken_False))
     {
-        HLSLLiteralExpression* literalExpression = m_tree->AddNode<HLSLLiteralExpression>(fileName, line);
+        HLSLLiteralExpression* literalExpression = m_tree->AddNode<HLSLLiteralExpression>(fileName, line, GetBufferOffset());
         literalExpression->type   = HLSLBaseType_Bool;
         literalExpression->bValue = false;
         literalExpression->expressionType.baseType = literalExpression->type;
@@ -1572,7 +1664,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
     else
     {
 
-        HLSLIdentifierExpression* identifierExpression = m_tree->AddNode<HLSLIdentifierExpression>(fileName, line);
+        HLSLIdentifierExpression* identifierExpression = m_tree->AddNode<HLSLIdentifierExpression>(fileName, line, GetBufferOffset());
         if (!ExpectIdentifier(identifierExpression->name))
         {
             return false;
@@ -1608,7 +1700,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
         HLSLUnaryOp unaryOp;
         while (AcceptUnaryOperator(false, unaryOp))
         {
-            HLSLUnaryExpression* unaryExpression = m_tree->AddNode<HLSLUnaryExpression>(fileName, line);
+            HLSLUnaryExpression* unaryExpression = m_tree->AddNode<HLSLUnaryExpression>(fileName, line, GetBufferOffset());
             unaryExpression->unaryOp = unaryOp;
             unaryExpression->expression = expression;
             unaryExpression->expressionType = unaryExpression->expression->expressionType;
@@ -1619,7 +1711,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
         // Member access operator.
         while (Accept('.'))
         {
-            HLSLMemberAccess* memberAccess = m_tree->AddNode<HLSLMemberAccess>(fileName, line);
+            HLSLMemberAccess* memberAccess = m_tree->AddNode<HLSLMemberAccess>(fileName, line, GetBufferOffset());
             memberAccess->object = expression;
             if (!ExpectIdentifier(memberAccess->field))
             {
@@ -1637,7 +1729,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
         // Handle array access.
         while (Accept('['))
         {
-            HLSLArrayAccess* arrayAccess = m_tree->AddNode<HLSLArrayAccess>(fileName, line);
+            HLSLArrayAccess* arrayAccess = m_tree->AddNode<HLSLArrayAccess>(fileName, line, GetBufferOffset());
             arrayAccess->array = expression;
             if (!ParseExpression(arrayAccess->index) || !Expect(']'))
             {
@@ -1701,7 +1793,7 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
         // expression.
         if (Accept('('))
         {
-            HLSLFunctionCall* functionCall = m_tree->AddNode<HLSLFunctionCall>(fileName, line);
+            HLSLFunctionCall* functionCall = m_tree->AddNode<HLSLFunctionCall>(fileName, line, GetBufferOffset());
             done = false;
             if (!ParseExpressionList(')', false, functionCall->argument, functionCall->numArguments))
             {
@@ -1789,7 +1881,7 @@ bool HLSLParser::ParseArgumentList(int endToken, HLSLArgument*& firstArgument, i
             return false;
         }
 
-        HLSLArgument* argument = m_tree->AddNode<HLSLArgument>(fileName, line);
+        HLSLArgument* argument = m_tree->AddNode<HLSLArgument>(fileName, line, GetBufferOffset());
 
         if (Accept(HLSLToken_Uniform))     { argument->modifier = HLSLArgumentModifier_Uniform; }
         else if (Accept(HLSLToken_In))     { argument->modifier = HLSLArgumentModifier_In;      }
@@ -2062,6 +2154,11 @@ int HLSLParser::GetLineNumber() const
     return m_tokenizer.GetLineNumber();
 }
 
+int HLSLParser::GetBufferOffset() const
+{
+    return m_tokenizer.GetBufferOffset();
+}
+   
 const char* HLSLParser::GetFileName()
 {
     return m_tree->AddString( m_tokenizer.GetFileName() );
@@ -2149,7 +2246,6 @@ const HLSLFunction* HLSLParser::MatchFunctionCall(const HLSLFunctionCall* functi
 
     const HLSLFunction* matchedFunction     = NULL;
 
-    int  numArguments           = functionCall->numArguments;
     int  numMatchedOverloads    = 0;
     bool nameMatches            = false;
 

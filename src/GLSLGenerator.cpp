@@ -70,9 +70,8 @@ static const char* GetTypeName(const HLSLType& type)
     case HLSLBaseType_Sampler2D:    return "sampler2D";
     case HLSLBaseType_SamplerCube:  return "samplerCube";
     case HLSLBaseType_UserDefined:  return type.typeName;
+    default:ASSERT(0);return "?";
     }
-    ASSERT(0);
-    return "?";
 }
 
 static bool GetCanImplicitCast(const HLSLType& srcType, const HLSLType& dstType)
@@ -675,6 +674,8 @@ void GLSLGenerator::OutputArguments(HLSLArgument* argument)
         case HLSLArgumentModifier_Inout:
             m_writer.Write("inout ");
             break;
+        default:
+            break;
         }
 
         OutputDeclaration(argument->type, argument->name);
@@ -745,8 +746,7 @@ void GLSLGenerator::OutputStatements(int indent, HLSLStatement* statement, const
             HLSLFunction* function = static_cast<HLSLFunction*>(statement);
 
             // Check if this is our entry point.
-            bool entryPoint = String_Equal(function->name, m_entryName);
-
+//            bool entryPoint = String_Equal(function->name, m_entryName);
             // Use an alternate name for the function which is supposed to be entry point
             // so that we can supply our own function which will be the actual entry point.
             const char* functionName   = GetSafeIdentifierName(function->name);
@@ -1106,7 +1106,7 @@ void GLSLGenerator::Error(const char* format, ...)
     char buffer[1024];
     va_list args;
     va_start(args, format);
-    int result = vsnprintf(buffer, sizeof(buffer) - 1, format, args);
+    vsnprintf(buffer, sizeof(buffer) - 1, format, args);
     va_end(args);
 
     Log_Error("%s", buffer);

@@ -59,6 +59,8 @@ static const char* _reservedWords[] =
         "uniform",
         "in",
         "inout",
+        "technique",
+        "pass"
     };
 
 static bool GetIsSymbol(char c)
@@ -92,6 +94,7 @@ static bool GetIsNumberSeparator(char c)
 HLSLTokenizer::HLSLTokenizer(const char* fileName, const char* buffer, size_t length)
 {
     m_buffer            = buffer;
+    m_bufferBegin       = buffer;
     m_bufferEnd         = buffer + length;
     m_fileName          = fileName;
     m_lineNumber        = 1;
@@ -468,6 +471,11 @@ int HLSLTokenizer::GetLineNumber() const
 {
     return m_tokenLineNumber;
 }
+   
+int HLSLTokenizer::GetBufferOffset() const
+{
+    return m_buffer - m_bufferBegin;
+}
 
 const char* HLSLTokenizer::GetFileName() const
 {
@@ -489,7 +497,7 @@ void HLSLTokenizer::Error(const char* format, ...)
     char buffer[1024];
     va_list args;
     va_start(args, format);
-    int result = vsnprintf(buffer, sizeof(buffer) - 1, format, args);
+    vsnprintf(buffer, sizeof(buffer) - 1, format, args);
     va_end(args);
 
     Log_Error("%s(%d) : %s", m_fileName, m_lineNumber, buffer);

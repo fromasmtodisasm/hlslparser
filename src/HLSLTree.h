@@ -34,6 +34,9 @@ enum HLSLNodeType
     HLSLNodeType_MemberAccess,
     HLSLNodeType_ArrayAccess,
     HLSLNodeType_FunctionCall,
+    HLSLNodeType_Technique,
+    HLSLNodeType_Pass,
+    HLSLNodeType_PassParam
 };
 
 enum HLSLBaseType
@@ -118,6 +121,9 @@ struct HLSLStatement;
 struct HLSLDeclaration;
 struct HLSLStruct;
 struct HLSLStructField;
+struct HLSLTechnique;
+struct HLSLPass;
+struct HLSLPassParam;
 struct HLSLBuffer;
 struct HLSLBufferField;
 struct HLSLFunction;
@@ -155,6 +161,7 @@ struct HLSLNode
     HLSLNodeType        nodeType;
     const char*         fileName;
     int                 line;
+    int                 bufferOffset;
 };
 
 struct HLSLRoot : public HLSLNode
@@ -212,6 +219,46 @@ struct HLSLStructField : public HLSLNode
     HLSLType            type;
     const char*         semantic;
     HLSLStructField*    nextField;      // Next field in the structure.
+};
+   
+/** A technique declaration. */
+
+struct HLSLTechnique : public HLSLStatement
+{
+    static const HLSLNodeType s_type = HLSLNodeType_Technique;
+    HLSLTechnique()
+    {
+        name = NULL;
+        pass = NULL;
+    }
+    const char*         name;
+    HLSLPass*           pass;
+};
+   
+struct HLSLPass : public HLSLNode {
+    static const HLSLNodeType s_type = HLSLNodeType_Pass;
+    HLSLPass()
+    {
+       name = NULL;
+       nextPass = NULL;
+       passParam = NULL;
+    }
+    const char*         name;
+    HLSLPass*           nextPass;
+    HLSLPassParam*      passParam;
+};
+
+struct HLSLPassParam : public HLSLNode {
+    static const HLSLNodeType s_type = HLSLNodeType_PassParam;
+    HLSLPassParam()
+    {
+       name = NULL;
+       value = NULL;
+       nextPassParam = NULL;
+    }
+    const char*         name;
+    const char*         value;
+    HLSLPassParam*      nextPassParam;
 };
 
 /** A cbuffer or tbuffer declaration. */
@@ -509,12 +556,13 @@ public:
 
     /** Adds a new node to the tree with the specified type. */
     template <class T>
-    T* AddNode(const char* fileName, int line)
+    T* AddNode(const char* fileName, int line, int bufferOffset)
     {
         HLSLNode* node = new (AllocateMemory(sizeof(T))) T();
         node->nodeType  = T::s_type;
         node->fileName  = fileName;
         node->line      = line;
+        node->bufferOffset = bufferOffset;
         return static_cast<T*>(node);
     }
 
