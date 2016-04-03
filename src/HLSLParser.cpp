@@ -863,6 +863,7 @@ bool HLSLParser::ParseTopLevel(HLSLStatement*& statement)
         }
         if (!Expect('}'))
             return false;
+        statement = technique;
         return true;
     }
     else if (Accept(HLSLToken_CBuffer) || Accept(HLSLToken_TBuffer))

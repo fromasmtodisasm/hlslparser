@@ -142,6 +142,47 @@ bool HLSLGenerator::Generate(const HLSLTree* tree, Target target, const char* en
     }
 
     OutputStatements(0, statement);
+    HLSLFunction* entryFunc = FindFunction(m_entryName);
+    if (entryFunc) {
+      
+        // Use an alternate name for the function which is supposed to be entry point
+        // so that we can supply our own function which will be the actual entry point.
+        const char* functionName   = entryFunc->name;
+        const char* returnTypeName = GetTypeName(entryFunc->returnType);
+      
+        m_writer.BeginLine(0, entryFunc->fileName, entryFunc->line);
+        m_writer.Write("%s main(", returnTypeName);
+      
+        OutputArguments(entryFunc->argument);
+      
+        if (entryFunc->semantic != NULL)
+        {
+            m_writer.Write(") : %s {", entryFunc->semantic);
+        }
+        else
+        {
+            m_writer.Write(") {");
+        }
+      
+        m_writer.EndLine();
+      
+        m_writer.BeginLine(1);
+        m_writer.Write("return %s(", functionName);
+        HLSLArgument* argument = entryFunc->argument;
+        {
+            int numArgs = 0;
+            while(argument) {
+                if (numArgs)
+                     m_writer.Write(", ");
+                m_writer.Write("%s", argument->name);
+                argument = argument->nextArgument;
+                ++numArgs;
+            }
+        }
+        m_writer.Write(");");
+        m_writer.EndLine();
+        m_writer.WriteLine(0, "};");
+    }
 
     m_tree = NULL;
     return true;
@@ -383,6 +424,25 @@ void HLSLGenerator::OutputArguments(HLSLArgument* argument)
         ++numArgs;
     }
 }
+   
+HLSLFunction* HLSLGenerator::FindFunction(const char* name)
+{
+   HLSLRoot* root = m_tree->GetRoot();
+   HLSLStatement* statement = root->statement;
+   while (statement != NULL)
+   {
+      if (statement->nodeType == HLSLNodeType_Function)
+      {
+         HLSLFunction* function = static_cast<HLSLFunction*>(statement);
+         if (String_Equal(function->name, name))
+         {
+            return function;
+         }
+      }
+      statement = statement->nextStatement;
+   }
+   return NULL;
+}
 
 void HLSLGenerator::OutputStatements(int indent, HLSLStatement* statement)
 {
@@ -541,6 +601,8 @@ void HLSLGenerator::OutputStatements(int indent, HLSLStatement* statement)
             OutputStatements(indent + 1, forStatement->statement);
             m_writer.WriteLine(indent, "}");
         }
+        else if (statement->nodeType == HLSLNodeType_Technique)
+        {}
         else
         {
             // Unhanded statement type.
@@ -550,7 +612,6 @@ void HLSLGenerator::OutputStatements(int indent, HLSLStatement* statement)
         statement = statement->nextStatement;
 
     }
-
 }
 
 void HLSLGenerator::OutputDeclaration(HLSLDeclaration* declaration)

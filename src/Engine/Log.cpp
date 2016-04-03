@@ -1,7 +1,12 @@
 #include "Log.h"
 #include "String.h"
+#include "../HLSLTree.h"
 
 #include <iostream>
+
+namespace {
+   std::string g_lastError;
+}
 
 namespace M4
 {
@@ -16,7 +21,11 @@ void Log_Error(const char* format, ...)
 
     va_end(args);
 
-    std::cerr << "ERROR: " << buffer << '\n';
+    g_lastError = buffer;
+}
+   
+const char* GetLastError() {
+    return g_lastError.c_str();
 }
 
 }

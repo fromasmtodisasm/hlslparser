@@ -3,9 +3,8 @@
 
 namespace M4
 {
-
-void Log_Error(const char* format, ...);
-
+   void Log_Error(const char* format, ...);
+   const char* GetLastError();
 }
 
 #endif

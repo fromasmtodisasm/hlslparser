@@ -52,6 +52,7 @@ private:
     /** Generates a name of the format "base+n" where n is an integer such that the name
      * isn't used in the syntax tree. */
     bool ChooseUniqueName(const char* base, char* dst, int dstLength) const;
+    HLSLFunction* FindFunction(const char* name);
 
 private:
 
