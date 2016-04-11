@@ -966,6 +966,7 @@ bool HLSLParser::ParseTopLevel(HLSLStatement*& statement)
             declaration->name           = globalName;
             declaration->type.baseType  = type;
             declaration->type.constant  = constant;
+            declaration->type.typeName  = typeName;
 
             // Handle array syntax.
             if (Accept('['))
