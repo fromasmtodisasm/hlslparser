@@ -683,7 +683,11 @@ HLSLParser::HLSLParser(Allocator* allocator, const char* fileName, const char* b
     m_userTypes(allocator),
     m_variables(allocator),
     m_functions(allocator),
-    m_technique(allocator)
+    m_technique(allocator),
+    m_use_global_function_in_variable(allocator),
+    m_use_global_function_in_function(allocator),
+    m_current_function(0),
+    m_allocator(allocator)
 {
     m_numGlobals = 0;
 }
@@ -934,7 +938,8 @@ bool HLSLParser::ParseTopLevel(HLSLStatement*& statement)
             function->returnType.typeName   = typeName;
 
             BeginScope();
-
+            HLSLFunction* old_current_function = m_current_function;
+            m_current_function = function;
             if (!ParseArgumentList(')', function->argument, function->numArguments))
             {
                 return false;
@@ -954,7 +959,7 @@ bool HLSLParser::ParseTopLevel(HLSLStatement*& statement)
             }
 
             EndScope();
-
+            m_current_function = old_current_function;
             // Note, no semi-colon at the end of a function declaration.
             statement = function;
             return true;
@@ -1676,6 +1681,19 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
         if (identifierType != NULL)
         {
             identifierExpression->expressionType = *identifierType;
+            if (identifierExpression->global) {
+                if (identifierType->baseType != HLSLBaseType_UserDefined) {
+                     m_use_global_function_in_variable.PushBack(M4::Pair<const char *, M4::HLSLFunction *>(
+                                                                                                   identifierExpression->name,
+                                                                                                   m_current_function
+                                                                                                ));
+                } else {
+                     m_use_global_function_in_variable.PushBack(M4::Pair<const char *, M4::HLSLFunction *>(
+                                                                                                   identifierType->typeName,
+                                                                                                   m_current_function
+                                                                                                ));
+                }
+            }
         }
         else
         {
@@ -1686,6 +1704,10 @@ bool HLSLParser::ParseTerminalExpression(HLSLExpression*& expression, bool& need
             }
             // Functions are always global scope.
             identifierExpression->global = true;
+            m_use_global_function_in_function.PushBack(M4::Pair<const char *, M4::HLSLFunction *>(
+                                                                                                  identifierExpression->name,
+                                                                                                  m_current_function
+                                                                                                  ));
         }
 
         expression = identifierExpression;
@@ -2209,6 +2231,30 @@ const HLSLFunction* HLSLParser::FindFunction(const char* name) const
     return NULL;
 }
 
+const Array<const char*> HLSLParser::GetUseGlobalVariableInFunction(HLSLFunction* func) const
+{
+    Array<const char*> array(m_allocator);
+    for (int i = 0; i < m_use_global_function_in_variable.GetSize(); i++) {
+         const Pair<const char*, HLSLFunction*> kvp = m_use_global_function_in_variable[i];
+         if (kvp.second() == func) {
+              array.PushBack(kvp.first());
+         }
+    }
+    return array;
+}
+   
+const Array<const char*> HLSLParser::GetUseGlobalFunctionInFunction(HLSLFunction* func) const
+{
+    Array<const char*> array(m_allocator);
+    for (int i = 0; i < m_use_global_function_in_function.GetSize(); i++) {
+        const Pair<const char*, HLSLFunction*> kvp = m_use_global_function_in_function[i];
+        if (kvp.second() == func) {
+            array.PushBack(kvp.first());
+        }
+    }
+    return array;
+}
+   
 void HLSLParser::DeclareVariable(const char* name, const HLSLType& type)
 {
     if (m_variables.GetSize() == m_numGlobals)

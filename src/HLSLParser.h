@@ -12,6 +12,7 @@
 
 #include "Engine/StringPool.h"
 #include "Engine/Array.h"
+#include "Engine/Pair.h"
 
 #include "HLSLTokenizer.h"
 #include "HLSLTree.h"
@@ -27,6 +28,10 @@ public:
     HLSLParser(Allocator* allocator, const char* fileName, const char* buffer, size_t length);
 
     bool Parse(HLSLTree* tree);
+
+    const Array<const char*> GetUseGlobalVariableInFunction(HLSLFunction* func) const;
+
+    const Array<const char*> GetUseGlobalFunctionInFunction(HLSLFunction* func) const;
 
 private:
 
@@ -86,7 +91,7 @@ private:
     const HLSLType* FindVariable(const char* name, bool& global) const;
 
     const HLSLFunction* FindFunction(const char* name) const;
-    
+   
     bool GetIsFunction(const char* name) const;
     
     /** Finds the overloaded function that matches the specified call. */
@@ -114,10 +119,14 @@ private:
     Array<Variable>         m_variables;
     Array<HLSLFunction*>    m_functions;
     Array<HLSLTechnique*>   m_technique;
+    typedef Pair<const char*, HLSLFunction*> VariableFunctionPair;
+    Array<VariableFunctionPair> m_use_global_function_in_variable;
+    Array<VariableFunctionPair> m_use_global_function_in_function;
     int                     m_numGlobals;
 
     HLSLTree*               m_tree;
-
+    HLSLFunction*           m_current_function;
+    Allocator*              m_allocator;
 };
 
 }
